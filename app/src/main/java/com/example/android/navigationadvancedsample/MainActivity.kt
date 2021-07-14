@@ -18,16 +18,21 @@ package com.example.android.navigationadvancedsample
 
 import android.content.Intent
 import android.os.Bundle
-import androidx.activity.OnBackPressedCallback
+import android.view.MenuItem
 import androidx.appcompat.app.AppCompatActivity
-import androidx.navigation.*
-import androidx.navigation.fragment.FragmentNavigatorExtras
-import androidx.navigation.fragment.NavHostFragment
-import androidx.navigation.ui.AppBarConfiguration
-import androidx.navigation.ui.navigateUp
-import androidx.navigation.ui.setupActionBarWithNavController
-import androidx.navigation.ui.setupWithNavController
+import androidx.fragment.app.commit
+import androidx.lifecycle.lifecycleScope
+import androidx.navigation.NavController
+import androidx.navigation.NavDeepLinkRequest
+import com.example.android.navigationadvancedsample.databinding.ActivityMainBinding
+import com.example.android.navigationadvancedsample.formscreen.Register
+import com.example.android.navigationadvancedsample.homescreen.Title
+import com.example.android.navigationadvancedsample.listscreen.Leaderboard
+import com.example.android.navigationadvancedsample.navigation.NavEventHandler
+import com.example.android.navigationadvancedsample.navigation.NavOptions
+import com.example.android.navigationadvancedsample.navigation.NavigatorProvider
 import com.google.android.material.bottomnavigation.BottomNavigationView
+import kotlinx.coroutines.flow.collect
 import java.util.*
 
 /**
@@ -36,55 +41,46 @@ import java.util.*
 class MainActivity : AppCompatActivity() {
 
     private lateinit var navController: NavController
-    private lateinit var appBarConfiguration: AppBarConfiguration
+
+    private lateinit var binding: ActivityMainBinding
+
+    private val navHandler: NavEventHandler = NavigatorProvider
+
+    private val savedState = TreeSet<String>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
-
-        val navHostFragment = supportFragmentManager.findFragmentById(
-            R.id.nav_host_container
-        ) as NavHostFragment
-        navController = navHostFragment.navController
-
-        // Setup the bottom navigation view with navController
-        val bottomNavigationView = findViewById<BottomNavigationView>(R.id.bottom_nav)
-        bottomNavigationView.setupWithNavController(navController)
-
-        // Setup the ActionBar with navController and 3 top level destinations
-        appBarConfiguration = AppBarConfiguration(
-            setOf(R.id.titleScreen, R.id.leaderboard, R.id.register)
-        )
-        setupActionBarWithNavController(navController, appBarConfiguration)
-    }
-
-    override fun onSupportNavigateUp(): Boolean {
-        return navController.navigateUp(appBarConfiguration)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+        handleNavEvents()
+        if (savedInstanceState == null) {
+            val selectedMenuItem = binding.bottomNav.menu.findItem(binding.bottomNav.selectedItemId)
+            NavigatorProvider.navigate(selectedMenuItem.navOptions())
+        }
+        binding.bottomNav.setOnItemSelectedListener {
+            if (it.itemId != binding.bottomNav.selectedItemId) {
+                val selectedMenuItem = binding.bottomNav.menu.findItem(binding.bottomNav.selectedItemId)
+                val selectedMenuItemRootFragment = selectedMenuItem.navOptions().fragmentClass.name
+                val newSelectedMenuItemNavOptions = it.navOptions()
+                savedState.add(selectedMenuItemRootFragment)
+                supportFragmentManager.saveBackStack(selectedMenuItemRootFragment)
+                if (savedState.remove(newSelectedMenuItemNavOptions.fragmentClass.name)) {
+                    supportFragmentManager.restoreBackStack(newSelectedMenuItemNavOptions.fragmentClass.name)
+                } else {
+                    NavigatorProvider.navigate(newSelectedMenuItemNavOptions)
+                }
+            }
+            true
+        }
     }
 
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
-//        navController.handleDeepLink(intent)
         handleDeepLink(intent)
     }
 
     override fun onBackPressed() {
-        /**
-         * Need to handle somehow the back button to switch between tabs when we are at the root of the current tab
-         * otherwise the default back button behaviour is to always switch to the first bottom nav tab
-         * and navigate the user to its root screen
-         * With the ugly code below it switches again to the first bottom nav but at least
-         * restore the previous state of that tab
-         */
-        val prevDestinationParent = navController.previousBackStackEntry?.destination?.parent
-        val currentDestinationParent = navController.currentDestination?.parent
-        val isOnSameGraph = currentDestinationParent != null && currentDestinationParent == prevDestinationParent
-        val bottomView = findViewById<BottomNavigationView>(R.id.bottom_nav)
-        if (isOnSameGraph || prevDestinationParent == null || bottomView.selectedItemId == prevDestinationParent.id) {
-            super.onBackPressed()
-        } else {
-            bottomView.selectedItemId = prevDestinationParent.id
-        }
+        super.onBackPressed()
     }
 
     /**
@@ -99,5 +95,32 @@ class MainActivity : AppCompatActivity() {
                 navController.navigate(deepLink.destination.id, null)
             }
         }
+    }
+
+    private fun handleNavEvents() {
+        lifecycleScope.launchWhenStarted {
+            navHandler.navEvent.collect {
+                when (it) {
+                    is NavOptions.FragmentNavOptions<*> -> handleFragmentNavigation(it)
+                    else -> {
+                        // DO NOTHING YET
+                    }
+                }
+            }
+        }
+    }
+
+    private fun handleFragmentNavigation(fragmentNavOptions: NavOptions.FragmentNavOptions<*>) {
+        supportFragmentManager.commit {
+            setReorderingAllowed(true)
+            replace(R.id.nav_host_container, fragmentNavOptions.fragmentClass, fragmentNavOptions.args, fragmentNavOptions.fragmentClass.name)
+            addToBackStack(fragmentNavOptions.fragmentClass.name)
+        }
+    }
+
+    private fun MenuItem.navOptions() = when (itemId) {
+        R.id.home -> NavOptions.FragmentNavOptions(Title::class.java)
+        R.id.list -> NavOptions.FragmentNavOptions(Leaderboard::class.java)
+        else  -> NavOptions.FragmentNavOptions(Register::class.java)
     }
 }

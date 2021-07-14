@@ -22,8 +22,9 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import androidx.fragment.app.Fragment
-import androidx.navigation.fragment.findNavController
 import com.example.android.navigationadvancedsample.R
+import com.example.android.navigationadvancedsample.navigation.NavOptions
+import com.example.android.navigationadvancedsample.navigation.NavigatorProvider
 
 
 /**
@@ -37,7 +38,7 @@ class Register : Fragment() {
         val view = inflater.inflate(R.layout.fragment_register, container, false)
 
         view.findViewById<Button>(R.id.signup_btn).setOnClickListener {
-            findNavController().navigate(R.id.action_register_to_registered)
+            NavigatorProvider.navigate(NavOptions.FragmentNavOptions(Registered::class.java))
         }
         return view
     }
