@@ -28,12 +28,12 @@ import com.example.android.navigationadvancedsample.databinding.ActivityMainBind
 import com.example.android.navigationadvancedsample.formscreen.Register
 import com.example.android.navigationadvancedsample.homescreen.Title
 import com.example.android.navigationadvancedsample.listscreen.Leaderboard
+import com.example.android.navigationadvancedsample.navigation.BackStackSavedState
 import com.example.android.navigationadvancedsample.navigation.NavEventHandler
 import com.example.android.navigationadvancedsample.navigation.NavOptions
 import com.example.android.navigationadvancedsample.navigation.NavigatorProvider
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import kotlinx.coroutines.flow.collect
-import java.util.*
 
 /**
  * An activity that inflates a layout that has a [BottomNavigationView].
@@ -46,7 +46,7 @@ class MainActivity : AppCompatActivity() {
 
     private val navHandler: NavEventHandler = NavigatorProvider
 
-    private val savedState = TreeSet<String>()
+    private val savedState = HashSet<BackStackSavedState>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -59,13 +59,24 @@ class MainActivity : AppCompatActivity() {
         }
         binding.bottomNav.setOnItemSelectedListener {
             if (it.itemId != binding.bottomNav.selectedItemId) {
-                val selectedMenuItem = binding.bottomNav.menu.findItem(binding.bottomNav.selectedItemId)
-                val selectedMenuItemRootFragment = selectedMenuItem.navOptions().fragmentClass.name
+                val previouslySelectedMenuItem =
+                    binding.bottomNav.menu.findItem(binding.bottomNav.selectedItemId)
+                val previouslySelectedMenuItemBackStackState = BackStackSavedState(
+                    stateName = previouslySelectedMenuItem.navOptions().fragmentClass.name,
+                    bottomNavId = previouslySelectedMenuItem.itemId
+                )
                 val newSelectedMenuItemNavOptions = it.navOptions()
-                savedState.add(selectedMenuItemRootFragment)
-                supportFragmentManager.saveBackStack(selectedMenuItemRootFragment)
-                if (savedState.remove(newSelectedMenuItemNavOptions.fragmentClass.name)) {
-                    supportFragmentManager.restoreBackStack(newSelectedMenuItemNavOptions.fragmentClass.name)
+                val newSelectedMenuBackStackState = BackStackSavedState(
+                    stateName = newSelectedMenuItemNavOptions.fragmentClass.name,
+                    bottomNavId = it.itemId
+                )
+                savedState.add(previouslySelectedMenuItemBackStackState)
+                supportFragmentManager.saveBackStack(previouslySelectedMenuItemBackStackState.stateName)
+                if (savedState.remove(newSelectedMenuBackStackState)) {
+                    // for some reason if we do not pop back the current stack before restoring the selected tab stack
+                    // then weird things happen on back navigation
+                    supportFragmentManager.popBackStack()
+                    supportFragmentManager.restoreBackStack(newSelectedMenuBackStackState.stateName)
                 } else {
                     NavigatorProvider.navigate(newSelectedMenuItemNavOptions)
                 }
@@ -80,18 +91,27 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onBackPressed() {
-        super.onBackPressed()
+        when {
+            supportFragmentManager.backStackEntryCount == 1 && savedState.isEmpty() -> finish()
+            supportFragmentManager.backStackEntryCount > 1 || savedState.isEmpty() -> super.onBackPressed()
+            else -> {
+                savedState.last().also {
+                    savedState.remove(it)
+                    //should not set the selected menu item trough binding.bottomNav.selectedItemId
+                    //because it invokes the logic in OnItemSelectedListener and things get messy
+                    binding.bottomNav.menu.findItem(it.bottomNavId).isChecked = true
+                    supportFragmentManager.popBackStack()
+                    supportFragmentManager.restoreBackStack(it.stateName)
+                }
+            }
+        }
     }
 
-    /**
-     * Find the graph where the deeplink is defined
-     * Switch the bottom nav to the tab of the deep link graph
-     * Navigate to the deep link destination
-     */
     private fun handleDeepLink(intent: Intent?) {
         navController.graph.matchDeepLink(NavDeepLinkRequest(intent!!))?.also { deepLink ->
             navController.findDestinationGraph(deepLink.destination.id)?.also { deepLinkGraph ->
-                findViewById<BottomNavigationView>(R.id.bottom_nav).selectedItemId = deepLinkGraph.id
+                findViewById<BottomNavigationView>(R.id.bottom_nav).selectedItemId =
+                    deepLinkGraph.id
                 navController.navigate(deepLink.destination.id, null)
             }
         }
@@ -113,7 +133,12 @@ class MainActivity : AppCompatActivity() {
     private fun handleFragmentNavigation(fragmentNavOptions: NavOptions.FragmentNavOptions<*>) {
         supportFragmentManager.commit {
             setReorderingAllowed(true)
-            replace(R.id.nav_host_container, fragmentNavOptions.fragmentClass, fragmentNavOptions.args, fragmentNavOptions.fragmentClass.name)
+            replace(
+                R.id.nav_host_container,
+                fragmentNavOptions.fragmentClass,
+                fragmentNavOptions.args,
+                fragmentNavOptions.fragmentClass.name
+            )
             addToBackStack(fragmentNavOptions.fragmentClass.name)
         }
     }
@@ -121,6 +146,6 @@ class MainActivity : AppCompatActivity() {
     private fun MenuItem.navOptions() = when (itemId) {
         R.id.home -> NavOptions.FragmentNavOptions(Title::class.java)
         R.id.list -> NavOptions.FragmentNavOptions(Leaderboard::class.java)
-        else  -> NavOptions.FragmentNavOptions(Register::class.java)
+        else -> NavOptions.FragmentNavOptions(Register::class.java)
     }
 }
