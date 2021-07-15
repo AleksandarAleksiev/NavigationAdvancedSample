@@ -26,6 +26,7 @@ import androidx.core.os.bundleOf
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.RecyclerView
 import com.example.android.navigationadvancedsample.R
+import com.example.android.navigationadvancedsample.navigation.Animations.Companion.screenTransitionAnimation
 import com.example.android.navigationadvancedsample.navigation.NavOptions
 import com.example.android.navigationadvancedsample.navigation.NavigatorProvider
 
@@ -86,7 +87,7 @@ class MyAdapter(private val myDataset: Array<String>) :
                 .setImageResource(listOfAvatars[position % listOfAvatars.size])
 
         holder.item.setOnClickListener {
-            NavigatorProvider.navigate(NavOptions.FragmentNavOptions(UserProfile::class.java, bundleOf(USERNAME_KEY to myDataset[position])))
+            NavigatorProvider.navigate(NavOptions.FragmentNavOptions(UserProfile::class.java, bundleOf(USERNAME_KEY to myDataset[position]), screenTransitionAnimation()))
         }
     }
 

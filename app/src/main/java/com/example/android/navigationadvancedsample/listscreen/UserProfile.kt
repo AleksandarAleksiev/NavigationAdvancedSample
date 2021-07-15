@@ -24,9 +24,12 @@ import android.widget.Button
 import android.widget.TextView
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
-import androidx.navigation.fragment.findNavController
+import com.example.android.navigationadvancedsample.BlankFragment
 import com.example.android.navigationadvancedsample.R
 import com.example.android.navigationadvancedsample.listscreen.MyAdapter.Companion.USERNAME_KEY
+import com.example.android.navigationadvancedsample.navigation.Animations.Companion.screenTransitionAnimation
+import com.example.android.navigationadvancedsample.navigation.NavOptions
+import com.example.android.navigationadvancedsample.navigation.NavigatorProvider
 
 
 /**
@@ -45,7 +48,7 @@ class UserProfile : Fragment() {
         with(view.findViewById<Button>(R.id.go_to_blank)) {
             isVisible = name == "Person 4"
             setOnClickListener {
-                findNavController().navigate(R.id.global_blank_action)
+                NavigatorProvider.navigate(NavOptions.FragmentNavOptions(BlankFragment::class.java, animations = screenTransitionAnimation()))
             }
         }
         return view

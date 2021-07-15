@@ -28,10 +28,7 @@ import com.example.android.navigationadvancedsample.databinding.ActivityMainBind
 import com.example.android.navigationadvancedsample.formscreen.Register
 import com.example.android.navigationadvancedsample.homescreen.Title
 import com.example.android.navigationadvancedsample.listscreen.Leaderboard
-import com.example.android.navigationadvancedsample.navigation.BackStackSavedState
-import com.example.android.navigationadvancedsample.navigation.NavEventHandler
-import com.example.android.navigationadvancedsample.navigation.NavOptions
-import com.example.android.navigationadvancedsample.navigation.NavigatorProvider
+import com.example.android.navigationadvancedsample.navigation.*
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import kotlinx.coroutines.flow.collect
 
@@ -92,7 +89,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onBackPressed() {
         when {
-            supportFragmentManager.backStackEntryCount == 1 && savedState.isEmpty() -> finish()
+            supportFragmentManager.backStackEntryCount == 1 && savedState.isEmpty() -> finish() // where do we close the app? Should we always move to the main tab and then close the app
             supportFragmentManager.backStackEntryCount > 1 || savedState.isEmpty() -> super.onBackPressed()
             else -> {
                 savedState.last().also {
@@ -122,6 +119,7 @@ class MainActivity : AppCompatActivity() {
             navHandler.navEvent.collect {
                 when (it) {
                     is NavOptions.FragmentNavOptions<*> -> handleFragmentNavigation(it)
+                    is NavOptions.FragmentPopBackNavOptions<*> -> supportFragmentManager.popBackStack(it.fragmentClass?.name, 0)
                     else -> {
                         // DO NOTHING YET
                     }
@@ -133,6 +131,9 @@ class MainActivity : AppCompatActivity() {
     private fun handleFragmentNavigation(fragmentNavOptions: NavOptions.FragmentNavOptions<*>) {
         supportFragmentManager.commit {
             setReorderingAllowed(true)
+            fragmentNavOptions.animations?.also { anim ->
+                setCustomAnimations(anim.enterAnimation, anim.exitAnimation, anim.popEnterAnimation, anim.popExitAnimation)
+            }
             replace(
                 R.id.nav_host_container,
                 fragmentNavOptions.fragmentClass,
@@ -144,8 +145,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun MenuItem.navOptions() = when (itemId) {
-        R.id.home -> NavOptions.FragmentNavOptions(Title::class.java)
-        R.id.list -> NavOptions.FragmentNavOptions(Leaderboard::class.java)
-        else -> NavOptions.FragmentNavOptions(Register::class.java)
+        R.id.home -> NavOptions.FragmentNavOptions(fragmentClass = Title::class.java, animations = Animations.bottomNavAnimation())
+        R.id.list -> NavOptions.FragmentNavOptions(fragmentClass = Leaderboard::class.java, animations = Animations.bottomNavAnimation())
+        else -> NavOptions.FragmentNavOptions(fragmentClass = Register::class.java, animations = Animations.bottomNavAnimation())
     }
 }
