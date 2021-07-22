@@ -24,6 +24,7 @@ import android.widget.Button
 import androidx.core.os.bundleOf
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
+import androidx.navigation.navOptions
 import com.example.android.navigationadvancedsample.R
 import com.example.android.navigationadvancedsample.findDestinationGraph
 import com.example.android.navigationadvancedsample.listscreen.MyAdapter
@@ -49,9 +50,23 @@ class About : Fragment() {
             findNavController().findDestinationGraph(R.id.userProfile)?.let {
                 requireActivity().findViewById<BottomNavigationView>(R.id.bottom_nav).selectedItemId = it.id
                 val bundle = bundleOf(MyAdapter.USERNAME_KEY to "Jump user")
-                findNavController().navigate(
-                    R.id.action_leaderboard_to_userProfile,
-                    bundle)
+                findNavController().navigate(R.id.userProfile, bundle)
+            }
+        }
+
+        view.findViewById<Button>(R.id.user_profile_root).setOnClickListener {
+            //First we need to find the NavGraph of the destination
+            //then switch the bottom nav bar to the correct tab
+            //so the state of the nav graph back stack is restored
+            //and we can navigate the user to the desired destination
+            findNavController().findDestinationGraph(R.id.userProfile)?.let {
+                requireActivity().findViewById<BottomNavigationView>(R.id.bottom_nav).selectedItemId = it.id
+                val bundle = bundleOf(MyAdapter.USERNAME_KEY to "Root user")
+                findNavController().navigate(R.id.userProfile, bundle, navOptions {
+                    popUpTo(R.id.leaderboard) {
+                        inclusive = true
+                    }
+                })
             }
         }
     }
