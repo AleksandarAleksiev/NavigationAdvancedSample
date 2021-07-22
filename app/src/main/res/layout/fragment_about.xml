@@ -76,7 +76,7 @@
         android:layout_marginEnd="8dp"
         android:layout_marginBottom="8dp"
         android:background="@drawable/rounded_button"
-        android:text="@string/about"
+        android:text="@string/about_user_profile"
         android:textColor="@color/colorAccent"
         android:textSize="18sp"
         android:textStyle="bold"
